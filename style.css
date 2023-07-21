@@ -1,0 +1,39 @@
+:root {
+  --light-brown: #d2b48c;
+  --dark-brown: #8b4513;
+  --square-size: 60px;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #222;
+}
+
+#board {
+  transform: scaleY(-1);
+  display: grid;
+  grid-template-columns: repeat(8, var(--square-size));
+  grid-template-rows: repeat(8, var(--square-size));
+}
+
+.square {
+  width: var(--square-size);
+  height: var(--square-size);
+  transform: scaleY(-1);
+  text-align: center;
+  color: #fff;
+  font-weight: 600;
+  line-height: var(--square-size);
+}
+
+/* Alternating colors for the squares */
+.light {
+  background-color: var(--light-brown);
+}
+
+.dark {
+  background-color: var(--dark-brown);
+}
