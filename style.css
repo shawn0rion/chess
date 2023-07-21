@@ -29,6 +29,11 @@ body {
   line-height: var(--square-size);
 }
 
+.piece {
+  width: var(--square-size);
+  height: var(--square-size);
+}
+
 /* Alternating colors for the squares */
 .light {
   background-color: var(--light-brown);
