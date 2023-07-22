@@ -21,6 +21,18 @@ const directions = {
   BottomLeft: { x: -1, y: -1 },
   BottomRight: { x: 1, y: -1 },
 };
+
+const knightDirections = [
+  { x: -1, y: 2 },
+  { x: 1, y: 2 },
+  { x: -1, y: -2 },
+  { x: 1, y: -2 },
+  { x: -2, y: 1 },
+  { x: 2, y: 1 },
+  { x: -2, y: -1 },
+  { x: 2, y: -1 },
+];
+
 // Board class
 
 class Board {
@@ -119,12 +131,14 @@ class Board {
     for (let rank = 0; rank < 8; rank++) {
       board.pieces[rank] = [];
 
-      for (let file = 0; file < 8; file++) {
+      for (let file = 0; file < fenArray[rank].length; file++) {
         // skip numbers
 
         if (isNaN(parseInt(fenArray[rank][file]))) {
           // char = index into fen by [rank][file]
           const char = fenArray[rank][file];
+          console.log(rank, file);
+
           // create new piece
           const piece = new Piece(rank, file);
           // set the type and user  based on char
@@ -133,10 +147,6 @@ class Board {
           // save the piece in the board
           const square = board.squares[rank][file];
           square.setPiece(piece);
-        } else {
-          // increment file by the number of empty squares
-          // -1 bc being incremented by the for loop
-          file += parseInt(fenArray[rank][file]) - 1;
         }
       }
     }
@@ -236,6 +246,7 @@ class Piece {
   }
 
   setColor(char) {
+    console.log(char);
     this.color = char === char.toUpperCase() ? "black" : "white";
   }
   setType(char) {
@@ -270,7 +281,11 @@ class Piece {
     // clear previous moves
     this.moves = [];
     // initialize moves for a queen piece
-    this.generateSlidingMoves();
+    if (this.type === "knight") {
+      this.generateKnightMoves();
+    } else {
+      this.generateSlidingMoves();
+    }
     // filter the moves based on type of piece
     this.filterMovesByType();
     this.moves.forEach((move) => {
@@ -351,16 +366,78 @@ class Piece {
     }
   }
 
+  generateKnightMoves() {
+    // first, iterate through the knight direcitons
+    for (let i = 0; i < knightDirections.length; i++) {
+      const direction = knightDirections[i];
+      // then get a coords using piece rank and file offset by the knight direction
+      const x = direction.x + this.file;
+      const y = direction.y + this.rank;
+      // check whether the coords are in bounds
+      if (x < 0 || x > 7 || y < 0 || y > 7) continue;
+      // if there is a piece of the same color, break
+      const targetSquare = board.squares[y][x];
+      if (targetSquare.piece && targetSquare.piece.color === this.color) break;
+      // else, add the move to moves
+      this.moves.push(
+        new Move(
+          "knight",
+          this,
+          board.squares[this.rank][this.file],
+          targetSquare
+        )
+      );
+    }
+    // else, add the move to moves
+  }
+
+  getPawnAttack() {
+    let positions = [];
+    // generate diag moves for either color
+    if (this.color === "white") {
+      positions = [
+        { x: -1, y: 1 },
+        { x: 1, y: 1 },
+      ];
+    } else {
+      positions = [
+        { x: -1, y: -1 },
+        { x: 1, y: -1 },
+      ];
+    }
+
+    for (let i = 0; i < positions.length; i++) {
+      const x = positions[i].x + this.file;
+      const y = positions[i].y + this.rank;
+      // check whether the coords are in bounds
+      if (x < 0 || x > 7 || y < 0 || y > 7) continue;
+      const targetSquare = board.squares[y][x];
+      // if there is a piece of opposite color on this square, add it to moves
+      if (targetSquare.piece && targetSquare.piece.color !== this.color) {
+        this.moves.push(
+          new Move(
+            "pawn",
+            this,
+            board.squares[this.rank][this.file],
+            targetSquare
+          )
+        );
+      }
+    }
+  }
+
   filterMovesByType() {
     if (this.type === "pawn") {
-      // then the move must be in the direction of the pawn
-      // if black, then down
+      // filter moves out for vertical direction using color
+      console.log(this);
       if (this.color === "black") {
         this.moves = this.moves.filter((move) => move.direction === "Bottom");
       } else {
         this.moves = this.moves.filter((move) => move.direction === "Top");
       }
-      // if white, then up
+      // get all valid diagonal moves
+      this.getPawnAttack();
+
       // the move must be one square difference in rank
 
       this.moves = this.moves.filter(
@@ -402,6 +479,9 @@ class Piece {
           Math.abs(move.endSquare.file - move.startSquare.file) <= 1
       );
     }
+    if (this.type === "knight") {
+      // moves are generated in generateKnightMoves
+    }
   }
 
   getNumMovesInDirection(startSquare, direction) {
@@ -430,7 +510,11 @@ class Move {
     this.endSquare = endSquare;
   }
 }
+
+// fend strings for testings:
+const pawnCapture = "8/8/p7/4P3/8/8/8/8";
+
 const board = new Board();
 board.generate();
-board.loadPiecesFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
+board.loadPiecesFromFen(pawnCapture);
 board.render();
