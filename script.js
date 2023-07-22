@@ -327,6 +327,18 @@ class Piece {
     // set rank and file to that of the end square
     this.rank = move.endSquare.rank;
     this.file = move.endSquare.file;
+    if (move.direction === "enPassant") this.handleEnPassant();
+  }
+
+  handleEnPassant() {
+    if (this.color === "white") {
+      // remove the piece one rank above
+      const square = board.squares[this.rank - 1][this.file];
+      square.removePiece();
+    } else {
+      const square = board.squares[this.rank + 1][this.file];
+      square.removePiece();
+    }
   }
 
   createElement() {
@@ -428,6 +440,62 @@ class Piece {
     }
   }
 
+  getEnPassant() {
+    let otherPawn = null;
+
+    // check if there is an inbound pawn of opposite color on the left or right
+    const xOffset = {
+      left: -1 + this.file,
+      right: 1 + this.file,
+    };
+    if (xOffset.left >= 0) {
+      const leftSquare = board.squares[this.rank][xOffset.left];
+      if (
+        leftSquare.piece &&
+        leftSquare.piece.color !== this.color &&
+        leftSquare.piece.type === "pawn"
+      ) {
+        otherPawn = leftSquare.piece;
+      }
+    }
+    if (xOffset.right <= 7) {
+      const rightSquare = board.squares[this.rank][xOffset.right];
+
+      if (
+        rightSquare.piece &&
+        rightSquare.piece.color !== this.color &&
+        rightSquare.piece.type === "pawn"
+      ) {
+        otherPawn = rightSquare.piece;
+      }
+    }
+    // no pawn on either side
+    if (otherPawn === null) return;
+    // find whether or not the pawn  could have moved a distance of 2
+    const lastMove = otherPawn.moves.find(
+      (move) => Math.abs(move.endSquare.rank - move.startSquare.rank) === 2
+    );
+    if (!lastMove) return;
+    // if so, then check whether or not the pawn DID move a distance of 2
+    if (lastMove.endSquare.rank !== otherPawn.rank) return;
+
+    // now determine the exact location of the move
+    // therefore, get the color of the piece that moved
+    let tempRank = otherPawn.rank;
+    if (otherPawn.color === "white") {
+      tempRank--;
+    } else {
+      tempRank++;
+    }
+    const move = new Move(
+      "enPassant",
+      this,
+      board.squares[this.rank][this.file],
+      board.squares[tempRank][otherPawn.file]
+    );
+    this.moves.push(move);
+  }
+
   filterMovesByType() {
     if (this.type === "pawn") {
       // filter moves out for vertical direction using color
@@ -439,15 +507,20 @@ class Piece {
       }
       // get all valid diagonal moves
       this.getPawnAttack();
-
+      // get a valid en passant move if possible
+      this.getEnPassant();
       // the move must be one square difference in rank
-
+      // and if the pawn hasn't moved, then the move can be 2 squares away
+      let limit = 1;
+      if (
+        (this.color === "white" && this.rank === 1) ||
+        (this.color === "black" && this.rank === 6)
+      ) {
+        limit = 2;
+      }
       this.moves = this.moves.filter(
-        (move) => Math.abs(move.endSquare.rank - move.startSquare.rank) === 1
+        (move) => Math.abs(move.endSquare.rank - move.startSquare.rank) <= limit
       );
-
-      // the top move is valid if the square is empty
-      // the diag move is valid if the square piece is not null
     }
     if (this.type === "rook") {
       // if the drection is left, right, top, bottom, then it is valid
@@ -514,7 +587,7 @@ class Move {
 }
 
 // fend strings for testings:
-const pawnCapture = "8/p7/8/4P3/8/8/8/8";
+const pawnCapture = "8/p7/8/1P6/8/8/8/8";
 
 const board = new Board();
 board.generate();
