@@ -130,14 +130,14 @@ class Board {
     // iterate throught the squares
     for (let rank = 0; rank < 8; rank++) {
       board.pieces[rank] = [];
-
-      for (let file = 0; file < fenArray[rank].length; file++) {
+      let file = 0;
+      for (let i = 0; i < fenArray[rank].length; i++) {
         // skip numbers
 
-        if (isNaN(parseInt(fenArray[rank][file]))) {
+        if (isNaN(parseInt(fenArray[rank][i]))) {
           // char = index into fen by [rank][file]
-          const char = fenArray[rank][file];
-          console.log(rank, file);
+          const char = fenArray[rank][i];
+          console.log(rank, i);
 
           // create new piece
           const piece = new Piece(rank, file);
@@ -147,6 +147,8 @@ class Board {
           // save the piece in the board
           const square = board.squares[rank][file];
           square.setPiece(piece);
+        } else {
+          file += parseInt(fenArray[rank][i]);
         }
       }
     }
@@ -512,7 +514,7 @@ class Move {
 }
 
 // fend strings for testings:
-const pawnCapture = "8/8/p7/4P3/8/8/8/8";
+const pawnCapture = "8/p7/8/4P3/8/8/8/8";
 
 const board = new Board();
 board.generate();
