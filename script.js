@@ -137,16 +137,20 @@ class Board {
         if (isNaN(parseInt(fenArray[rank][i]))) {
           // char = index into fen by [rank][file]
           const char = fenArray[rank][i];
-          console.log(rank, i);
 
           // create new piece
           const piece = new Piece(rank, file);
+          // get moves for the piece
+          piece.getValidMoves();
           // set the type and user  based on char
           piece.setColor(char);
           piece.setType(char);
-          // save the piece in the board
+          // save the piece in the square
           const square = board.squares[rank][file];
           square.setPiece(piece);
+
+          // save the piece in the board
+          board.pieces[rank][file] = piece;
         } else {
           file += parseInt(fenArray[rank][i]);
         }
@@ -206,6 +210,9 @@ class Square {
         board.render();
         // alternate turn
         board.alternateTurn();
+
+        // generate new moves for that previous piece based on new board state
+        droppedPiece.getValidMoves();
       }
     });
   }
@@ -248,7 +255,6 @@ class Piece {
   }
 
   setColor(char) {
-    console.log(char);
     this.color = char === char.toUpperCase() ? "black" : "white";
   }
   setType(char) {
@@ -288,14 +294,9 @@ class Piece {
     } else {
       this.generateSlidingMoves();
     }
+
     // filter the moves based on type of piece
     this.filterMovesByType();
-    this.moves.forEach((move) => {
-      move.endSquare.setIsMove();
-      console.log(
-        `set end Square: ${move.endSquare.rank},${move.endSquare.file}`
-      );
-    });
   }
 
   handleDragDrop(pieceElement) {
@@ -311,6 +312,12 @@ class Piece {
       board.clearMoves();
       // get the valid moves
       this.getValidMoves();
+
+      // update the board configuration to show valid moves
+      this.moves.forEach((move) => {
+        move.endSquare.setIsMove();
+      });
+      console.log(this.moves);
       // update board
       board.renderValidMoves();
     });
@@ -324,10 +331,82 @@ class Piece {
   }
 
   move(move) {
+    // this is a test to see if can identify check and prevent the move
+    const { rank, file } = move.endSquare;
+
     // set rank and file to that of the end square
-    this.rank = move.endSquare.rank;
-    this.file = move.endSquare.file;
-    if (move.direction === "enPassant") this.handleEnPassant();
+    this.rank = rank;
+    this.file = file;
+    // handle edge cases for pawns
+    if (this.type === "pawn") {
+      if (move.direction === "enPassant") {
+        this.handleEnPassant();
+      }
+      if (
+        (this.rank === 0 && this.color === "black") ||
+        (this.rank === 7 && this.color === "white")
+      ) {
+        this.handlePromotion();
+      }
+    }
+  }
+
+  // assume that the king is not already at this position
+  kingIsInCheck(color, rank, file) {
+    let inCheck = false;
+    // save the king's current position
+    const oldRank = this.rank;
+    const oldFile = this.file;
+
+    // move the king to the new position
+    this.rank = rank;
+    this.file = file;
+    // update the internal board representation to represent the new position
+    const prevSquare = board.squares[oldRank][oldFile];
+    const newSquare = board.squares[rank][file];
+    // keep a reference of the piece which may be overwritten
+    const newSquarePiece = newSquare.piece;
+
+    newSquare.setPiece(this);
+    prevSquare.removePiece();
+
+    // there is some piece of an opposite color which has a valid move,
+    // and the move lands on a square which has a king
+
+    // get all pieces which are of the opposite color
+    // this is a copy so i can generate moves without affecting the board
+    const opponentPieces = [
+      ...board.pieces.flat().filter((piece) => piece.color !== this.color),
+    ];
+
+    opponentPieces.forEach((piece) => {
+      // save the previous moves of the piece
+      const oldMoves = piece.moves;
+      console.log(oldMoves);
+      piece.getValidMoves();
+      piece.moves.forEach((move) => {
+        if (move.endSquare.piece && move.endSquare.piece.type === "king") {
+          inCheck = true;
+        }
+      });
+      // reset the moves
+      piece.moves = oldMoves;
+    });
+    // iterate through all of the opponent pieces
+    // get the valid moves of each piece
+    // check if any of the moves land on this piece
+
+    // reset the internal board representation
+    this.rank = oldRank;
+    this.file = oldFile;
+    prevSquare.setPiece(this);
+    newSquare.setPiece(newSquarePiece);
+
+    return inCheck;
+  }
+
+  handlePromotion() {
+    this.type = "queen";
   }
 
   handleEnPassant() {
@@ -367,7 +446,6 @@ class Piece {
         // if the this square in this direction is a piece of my color,  break
         const targetSquare =
           board.squares[this.rank + y * i][this.file + x * i];
-        console.log(targetSquare);
         const targetPiece = targetSquare.piece;
 
         if (targetPiece !== null && targetPiece.color === this.color) break;
@@ -553,6 +631,21 @@ class Piece {
           Math.abs(move.endSquare.rank - move.startSquare.rank) <= 1 &&
           Math.abs(move.endSquare.file - move.startSquare.file) <= 1
       );
+
+      // iterate through all of the moves
+      let counter = 0;
+
+      const movesToRemove = [];
+      for (let i = 0; i < this.moves.length; i++) {
+        const { rank, file } = this.moves[i].endSquare;
+        // remove a move which puts the king in check
+        if (this.kingIsInCheck(this.color, rank, file)) {
+          movesToRemove.push(i);
+        }
+      }
+      this.moves = this.moves.filter((move, idx) =>
+        movesToRemove.every((moveToRemove) => moveToRemove !== idx)
+      );
     }
     if (this.type === "knight") {
       // moves are generated in generateKnightMoves
@@ -587,7 +680,7 @@ class Move {
 }
 
 // fend strings for testings:
-const pawnCapture = "8/p7/8/1P6/8/8/8/8";
+const pawnCapture = "3k6/R7/8/8/8/8/8/8";
 
 const board = new Board();
 board.generate();
